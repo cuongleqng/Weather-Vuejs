@@ -2,7 +2,7 @@
   <div id="app">
     <div id="weather-wrap"> 
       <div class="container">
-        <form action="#" class="find-location">
+        <form action="#" class="find-location" >
           <input type="text" placeholder="Find your location..." v-model="city" @keypress="searchCity">
           <input type="submit" value="Find">
         </form>
@@ -20,6 +20,7 @@
 </template>
 
 <script>
+const axios = require('axios')
 import NextForecast from './components/NextForecast'
 import TodayForecast from './components/TodayForecast'
 export default {
@@ -42,7 +43,7 @@ export default {
       if (pos) {
         this.position.lat = pos.coords.latitude
         this.position.lon = pos.coords.longitude
-        this.todayForecast()
+        this.searchWithGeo(this.position)
         this.nextForecast()
       }
       
@@ -55,28 +56,44 @@ export default {
   methods: {
     searchCity(e) {
       if (e.key == "Enter") {
-        this.todayForecast()
-        this.nextForecast()
+        this.searchWithCity(this.city)
+        .then(this.nextForecast)
       }
     },
-		async todayForecast() {
-      let searchWith = ''
-      if (this.city)
-        searchWith = `q=${this.city}`
-      else {
-        if (this.position.lat && this.position.lon)
-          searchWith = `lat=${this.position.lat}&lon=${this.position.lon}`
+    async searchWithCity(city) {
+      await axios.get(this.BASE_URL + 'weather', {
+        params: {
+          'q': city,
+          'units': 'metric',
+          'appid': this.API_KEY
+        }
+      }).then(rsp => rsp.data).then(this.setWeather)
+    },
+    async searchWithGeo(position = {}) {
+      if (position) {
+        await axios.get(this.BASE_URL + 'weather', {
+          params: {
+            'lat': position.lat,
+            'lon': position.lon,
+            'units': 'metric',
+            'appid': this.API_KEY
+          }
+        }).then(rsp => rsp.data).then(this.setWeather)
       }
-      await fetch(`${this.BASE_URL}weather?${searchWith}&units=metric&appid=${this.API_KEY}`)
-				.then(rsp => rsp.json())
-				.then(this.setWeather)
-		},
+    },
     async nextForecast() {
-      await fetch(`${this.BASE_URL}onecall?lat=${this.position.lat}&lon=${this.position.lon}&exclude=current,minutely,hourly&units=metric&appid=${this.API_KEY}`)
-        .then(rsp => rsp.json())
-        .then(this.setNextForecast)
+      await axios.get(this.BASE_URL + 'onecall', {
+        params: {
+          'lat': this.position.lat,
+          'lon': this.position.lon,
+          'exclude': 'current,minutely,hourly',
+          'units': 'metric',
+          'appid': this.API_KEY
+        }
+      }).then(rsp => rsp.data).then(this.setNextForecast)
     },
     setWeather(data) {
+        console.log(data.coord)
         this.weather = data
         this.position = data.coord
     },
